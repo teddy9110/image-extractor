@@ -1,11 +1,10 @@
 <?php
 
 namespace App\Models;
+use Illuminate\Database\Eloquent\Model;
 
-class Photo extends Authenticatable
+class Photo extends Model
 {
-    use HasFactory, Notifiable;
-
     /**
      * The attributes that are mass assignable.
      *
@@ -14,6 +13,7 @@ class Photo extends Authenticatable
     protected $fillable = [
         'file_name',
         'file_path',
-        'gps_data',
+        'latitude',
+        'longitude',
     ];
 }

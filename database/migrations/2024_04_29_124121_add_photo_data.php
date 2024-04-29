@@ -15,7 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('file_name');
             $table->string('file_path');
-            $table->string('gps_data');
+            $table->string('latitude');
+            $table->string('longitude');
             $table->timestamps();
         });
 

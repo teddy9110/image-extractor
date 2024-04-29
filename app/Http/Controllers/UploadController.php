@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Photo;
+use Illuminate\Support\Facades\File;
 use ZipArchive;
 
 class UploadController extends Controller
@@ -19,16 +21,52 @@ class UploadController extends Controller
 
             if ($zipFile->getClientOriginalExtension() === 'zip') {
                 // If it's a zip file
+                $id =  uniqid();
                 $storedPath = $zipFile->store('uploads'); // Store the file in the 'uploads' directory
                 // need to get the file and then send it to extractGPSData with the file path, its finikey af though 
                 $zip = new ZipArchive;
                 $zip->open(storage_path('app/' . $storedPath));
-                $extractedPath = storage_path('app/uploads/' . uniqid());
+                $extractedPath = storage_path('app/uploads/' .$id);
                 $zip->extractTo($extractedPath);
                 $zip->close();
+                //delete the zip file 
+                // Loop through the extracted files
                 
-               
-               
+                $files = scandir($extractedPath); // assuming $extractedPath is the path where your files are located
+                // clip the first 2 from the array
+
+                $files = array_slice($files, 2);
+                
+                foreach ($files as $file) {
+                    
+                    if (is_file($extractedPath . '/' . $file)) {
+                       $gps = $this->extractGPSData($extractedPath . '/' . $file);
+
+                          if ($gps) {
+                            $photo = new Photo();
+                            $photo->file_name = $file;
+                            $photo->file_path = $extractedPath . '/' . $file;
+                            $photo->latitude = $gps['latitude'];
+                            $photo->longitude = $gps['longitude'];
+                            $photo->save();
+                          }
+                    }
+                }
+
+                $files = glob(storage_path('app/uploads/*')); // get all file names
+                foreach($files as $file){ // iterate files
+                    if(is_file($file)) {
+                        unlink($file); // delete file
+                    }
+                    
+                }
+        
+                $uploadDir = storage_path('app/uploads');
+                File::deleteDirectory($uploadDir); // delete the directory and its contents
+                File::makeDirectory($uploadDir); // create a new directory
+
+
+                return redirect('/upload')->with('success', 'Files uploaded successfully.');
             } else {
                 return redirect('/upload')->with('error', 'Please upload a zip file.');
             }
@@ -39,8 +77,7 @@ class UploadController extends Controller
 
     private function extractGPSData($filePath)
     {
-        $exif = exif_read_data($filePath, 'EXIF');
-
+        $exif = exif_read_data($filePath,'EXIF');
         if ($exif && isset($exif['GPS'])) {
             $latitudeRef = $exif['GPS']['GPSLatitudeRef'];
             $latitude = $this->gpsToDecimal($exif['GPS']['GPSLatitude'], $latitudeRef);
@@ -53,7 +90,10 @@ class UploadController extends Controller
                 'longitude' => $longitude,
             ];
         } else {
-            return null; // GPS data not found or invalid
+            return [
+                'latitude' => '',
+                'longitude' => '',
+            ];
         }
     }
 
